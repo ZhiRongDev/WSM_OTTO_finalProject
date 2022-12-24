@@ -1,6 +1,9 @@
+import pprint
 import polars as pl
 from gensim.test.utils import common_texts
 from gensim.models import Word2Vec
+
+pp = pprint.PrettyPrinter()
 
 train = pl.read_parquet('../data/test/train.parquet')
 test = pl.read_parquet('../data/test/test.parquet')
@@ -52,3 +55,12 @@ print('\nKaggle Notebook')
 # print(index.get_nns_by_item(1, 11))
 for idx in index.get_nns_by_item(1, 11):
     print(w2vec.wv.index_to_key[idx])
+
+print('\npredict_output_word (probablilty distribution): ')
+pp.pprint(w2vec.predict_output_word([1]))
+total = sum(i[1] for i in w2vec.predict_output_word([1], topn=len(w2vec.wv.index_to_key)))
+print(f'total probablilty = {total}')
+
+# print(w2vec.wv.index_to_key)
+
+

@@ -16,8 +16,8 @@ w2vec = Word2Vec(sentences=sentences, vector_size=100, min_count=1, workers=4)
 ########
 from gensim.similarities.annoy import AnnoyIndexer
 
-# 100 trees are being used in this example
-annoy_index = AnnoyIndexer(w2vec, 100)
+# 50 trees are being used in this example
+annoy_index = AnnoyIndexer(w2vec, 50)
 
 ########
 
