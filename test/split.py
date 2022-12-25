@@ -7,8 +7,8 @@ type2id = {a: i for i, a in enumerate(id2type)}
 
 # print(id2type, type2id)
 
-pd.to_pickle(id2type, './data/test/id2type.pkl')
-pd.to_pickle(type2id, './data/test/type2id.pkl')
+pd.to_pickle(id2type, '../data/test/id2type.pkl')
+pd.to_pickle(type2id, '../data/test/type2id.pkl')
 
 def json_to_df(fn):
     start = time.time()
@@ -25,7 +25,7 @@ def json_to_df(fn):
         You need to use "break" to only chunk n rows.
 
     """
-    chunks = pd.read_json(fn, lines=True, chunksize=100)
+    chunks = pd.read_json(fn, lines=True, chunksize=1000)
      
     for chunk in chunks:
         # print(chunk)
@@ -47,14 +47,14 @@ def json_to_df(fn):
 
 
 
-train_df = json_to_df('./data/origin/train.jsonl')
+train_df = json_to_df('../data/origin/train.jsonl')
 train_df.type = train_df.type.astype(np.uint8)
-train_df.to_parquet('./data/test/train.parquet', index=False)
-train_df.to_csv('./data/test/train.csv', index=False)
+train_df.to_parquet('../data/test/train.parquet', index=False)
+train_df.to_csv('../data/test/train.csv', index=False)
 
 del train_df
 
-test_df = json_to_df('./data/origin/test.jsonl')
+test_df = json_to_df('../data/origin/test.jsonl')
 test_df.type = test_df.type.astype(np.uint8)
-test_df.to_parquet('./data/test/test.parquet', index=False)
-test_df.to_csv('./data/test/test.csv', index=False)
+test_df.to_parquet('../data/test/test.parquet', index=False)
+test_df.to_csv('../data/test/test.csv', index=False)
