@@ -3,7 +3,7 @@ import numpy as np
 from gensim.test.utils import common_texts
 from gensim.models import Word2Vec
 
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import MiniBatchKMeans, kmeans_plusplus
 # from sklearn.decomposition import PCA
 
 
@@ -19,7 +19,7 @@ sentences = sentences_df['sentence'].to_list()
 
 w2vec = Word2Vec(sentences=sentences, vector_size=100, min_count=1, workers=4)
 
-def vectorize(list_of_session):
+def vectorize_list(list_of_session):
     features = []     
 
     for session in list_of_session['session']:
@@ -36,15 +36,34 @@ def vectorize(list_of_session):
 
     return features
 
-sentences_vec = vectorize(sentences_df)
+def vectorize_dict(list_of_session):
+    features = {}
 
-kmeans = MiniBatchKMeans(n_clusters=10).fit(sentences_vec)
+    for session in list_of_session['session']:
 
-label_df = pl.DataFrame({
-    "label": kmeans.labels_
-})
+        vectors = []
+        tokens = list(list_of_session.filter(pl.col("session") == session)["sentence"][0])
+        
+        for token in tokens:
+            vectors.append(w2vec.wv[token])
+    
 
-sentences_df = pl.concat([sentences_df, label_df], how="horizontal")
+        vectors = np.asarray(vectors)
+        avg_vec = vectors.mean(axis=0)
+        features[session] = avg_vec
+
+    return features
+
+# sentences_vec = vectorize_list(sentences_df)
+sentences_vec_dict = vectorize_dict(sentences_df)
+
+# kmeans = MiniBatchKMeans().fit(sentences_vec)
+
+# label_df = pl.DataFrame({
+#     "label": kmeans.labels_
+# })
+
+# sentences_df = pl.concat([sentences_df, label_df], how="horizontal")
 
 ########
 from gensim.similarities.annoy import AnnoyIndexer
@@ -75,8 +94,8 @@ for idx, (AIDs, types) in enumerate(zip(test_session_AIDs, test_session_types)):
     # print(idx, AIDs, types)
     # print(test_session_AIDs.index[idx])
    
-    cluster_num = sentences_df.filter(pl.col("session") == session_num).select("label")
-    cluster_num =list(cluster_num)[0][0]
+    # cluster_num = sentences_df.filter(pl.col("session") == session_num).select("label")
+    # cluster_num =list(cluster_num)[0][0]
     
     if len(AIDs) >= 20:
         # if we have enough aids (over equals 20) we don't need to look for candidates! we just use the old logic
@@ -98,7 +117,10 @@ for idx, (AIDs, types) in enumerate(zip(test_session_AIDs, test_session_types)):
         # vector = w2vec.wv[most_recent_aid]
         
         ## use the centeri in cluster
-        vector = kmeans.cluster_centers_[cluster_num]
+        # vector = kmeans.cluster_centers_[cluster_num]
+        
+        ## use the represent item in session
+        vector = sentences_vec_dict[session_num]
 
         nns = [i for i, j in w2vec.wv.most_similar([vector], topn=21, indexer=annoy_index)]
         nns.pop(0)
@@ -117,4 +139,4 @@ for st in session_types:
     prediction_dfs.append(modified_predictions)
 
 submission = pd.concat(prediction_dfs).reset_index(drop=True)
-# submission.to_csv('submission.csv', index=False)
+submission.to_csv('submission.csv', index=False)
