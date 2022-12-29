@@ -3,7 +3,7 @@ from gensim.test.utils import common_texts
 from gensim.models import Word2Vec
 
 # train = pl.read_parquet('./data/local_validation/test.parquet')
-train = pl.read_parquet('./data/local_validation/test.parquet')
+train = pl.read_parquet('./data/test/test.parquet')
 test = pl.read_parquet('./data/test/test.parquet')
 
 train = train.with_columns([
@@ -20,8 +20,8 @@ test = test.with_columns([
     pl.col('ts').cast(pl.datatypes.Int64)
 ])
 
-print(train)
-print(test)
+print(f'{train=}')
+print(f'{test=}')
 
 sentences_df = pl.concat([train, test]).groupby('session').agg(
     pl.col('aid').alias('sentence')
@@ -45,8 +45,6 @@ import pandas as pd
 import numpy as np
 
 from collections import defaultdict
-
-sample_sub = pd.read_csv('./data/sample_submission.csv')
 
 session_types = ['clicks', 'carts', 'orders']
 train_session_AIDs = train.to_pandas().reset_index(drop=True).groupby('session')['aid'].apply(list)
@@ -99,14 +97,32 @@ for idx, (AIDs, types) in enumerate(zip(train_session_AIDs, train_session_types)
         most_recent_aid = AIDs[0]
         # and look for some neighbors!
         nns = [w2vec.wv.index_to_key[i] for i in index.get_nns_by_item(aid2idx[most_recent_aid], 21)[1:]]
+        
+        for aid in nns[:20]:
+            df = pl.DataFrame({
+                "session": [session_num],
+                "aid": [aid]
+            })
+            df = df.with_columns([
+                pl.col('session').cast(pl.datatypes.Int32),
+                pl.col('aid').cast(pl.datatypes.Int32)
+            ])
+            candidates = pl.concat(
+                [
+                    candidates,
+                    df
+                ],
+                how="vertical",
+            )
                         
         # labels.append((AIDs+nns)[:20])
 
 # candidates = pd.DataFrame(data={'session': train_session_AIDs.index, 'aid': labels})
 # candidates = pl.DataFrame(candidates)
-print(candidates)
+print(f'{candidates=}')
 candidates = candidates.with_column(pl.col('aid').cumcount().over('session').alias('word2vec_rank') + 1)
-print(candidates)
+print(f'{candidates=}')
 
-train = train.join(candidates, on=['session', 'aid'], how='outer')
-print(train)
+train = train.join(candidates, on=['session', 'aid'], how='outer').sort("session")
+# print(f'{train=}')
+print(f'{train.filter(pl.col("session") == 12899779)=}')
