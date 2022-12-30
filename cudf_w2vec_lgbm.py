@@ -12,7 +12,7 @@ from gensim.models import Word2Vec
 
 # train = pl.read_parquet('./data/local_validation/test.parquet')
 train = pl.read_parquet('./data/test/train.parquet')
-test = pl.read_parquet('./data/test/test.parquet')
+test = pl.read_parquet('./data/local_validation/test.parquet')
 
 train = train.with_columns([
     pl.col('session').cast(pl.datatypes.Int32),
@@ -201,6 +201,7 @@ ranker = ranker.fit(
     group=session_lengths_train,
 )
 
+### create submission
 test = apply(test, pipeline)
 print(f'{test.columns=}')
 
