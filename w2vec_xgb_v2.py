@@ -3,8 +3,8 @@ import polars as pl
 from gensim.test.utils import common_texts
 from gensim.models import Word2Vec
 
-# train = pl.read_parquet('./data/local_validation/test.parquet')
-train = pl.read_parquet('./data/test/train.parquet')
+train = pl.read_parquet('./data/local_validation/test.parquet')
+# train = pl.read_parquet('./data/test/train.parquet')
 test = pl.read_parquet('./data/test/test.parquet')
 
 train = train.with_columns([
@@ -75,7 +75,7 @@ type_weight_multipliers = {0: 1, 1: 6, 2: 3}
 for idx, (AIDs, types) in enumerate(zip(train_session_AIDs, train_session_types)):
     session_num = train_session_AIDs.index[idx]    
 
-    # print(session_num)
+    print(session_num)
 
     if len(AIDs) >= 20:
 
@@ -95,10 +95,6 @@ for idx, (AIDs, types) in enumerate(zip(train_session_AIDs, train_session_types)
             nns = [w2vec.wv.index_to_key[i] for i in index.get_nns_by_item(aid2idx[most_recent_aid], 21)[1:]]
             sorted_aids = (sorted_aids + nns)[:20]
 
-        if session_num < 8:
-            print(session_num)
-            print(f'{sorted_aids[:20]=}')
-
         session_arr = np.full((20), session_num)
         df = pl.DataFrame({
             "session": session_arr,
@@ -115,23 +111,6 @@ for idx, (AIDs, types) in enumerate(zip(train_session_AIDs, train_session_types)
             ],
             how="vertical",
         )
-
-        # for aid in sorted_aids[:20]:
-        #     df = pl.DataFrame({
-        #         "session": [session_num],
-        #         "aid": [aid]
-        #     })
-        #     df = df.with_columns([
-        #         pl.col('session').cast(pl.datatypes.Int32),
-        #         pl.col('aid').cast(pl.datatypes.Int32)
-        #     ])
-        #     candidates = pl.concat(
-        #         [
-        #             candidates,
-        #             df
-        #         ],
-        #         how="vertical",
-        #     )
 
     else:
         # here we don't have 20 aids to output -- we will use word2vec embeddings to generate candidates!
@@ -159,25 +138,6 @@ for idx, (AIDs, types) in enumerate(zip(train_session_AIDs, train_session_types)
             ],
             how="vertical",
         )
-        # for aid in (AIDs+nns)[:20]:
-        #     df = pl.DataFrame({
-        #         "session": [session_num],
-        #         "aid": [aid]
-        #     })
-        #     df = df.with_columns([
-        #         pl.col('session').cast(pl.datatypes.Int32),
-        #         pl.col('aid').cast(pl.datatypes.Int32)
-        #     ])
-        #     candidates = pl.concat(
-        #         [
-        #             candidates,
-        #             df
-        #         ],
-        #         how="vertical",
-        #     )
-        
-        # labels.append((AIDs+nns)[:20])  
-    # print(candidates)
 
 # candidates = pd.DataFrame(data={'session': train_session_AIDs.index, 'aid': labels})
 # candidates = pl.DataFrame(candidates)
