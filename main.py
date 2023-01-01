@@ -4,15 +4,17 @@ import polars as pl
 import numpy as np
 from collections import defaultdict
 import cudf
+from sklearn.preprocessing import label_binarize
 cudf.set_option("default_integer_bitwidth", 32)
 cudf.set_option("default_float_bitwidth", 32)
 
 from gensim.test.utils import common_texts
 from gensim.models import Word2Vec
 
-# train = pl.read_parquet('./data/local_validation/test.parquet')
-train = pl.read_parquet('./data/test/train.parquet')
+train = pl.read_parquet('./data/local_validation/test.parquet')
 test = pl.read_parquet('./data/local_validation/test.parquet')
+# train = pl.read_parquet('./data/test/train.parquet')
+# test = pl.read_parquet('./data/test/test.parquet')
 
 train = train.with_columns([
     pl.col('session').cast(pl.datatypes.Int32),
@@ -63,16 +65,20 @@ def word2vec_candidate(df):
     session_types = ['clicks', 'carts', 'orders']
     df_session_AIDs = df.to_pandas().reset_index(drop=True).groupby('session')['aid'].apply(list)
     df_session_types = df.to_pandas().reset_index(drop=True).groupby('session')['type'].apply(list)
+    df_session_num = df.to_pandas().reset_index(drop=True).groupby('session')['session'].apply(list)
     
-    candidates = cudf.DataFrame({"session": [], "aid":[]})
+    #
+    label_sessions = []
+    label_aids = []
 
     print("candidate calc start")
     start = time.time()
 
     type_weight_multipliers = {0: 1, 1: 6, 2: 3}
-    for idx, (AIDs, types) in enumerate(zip(df_session_AIDs, df_session_types)):
-        session_num = df_session_AIDs.index[idx]    
-        # print(session_num)
+    for AIDs, types, session_num in zip(df_session_AIDs, df_session_types, df_session_num):
+        session_num = session_num[0]
+        print(session_num)
+            
         if len(AIDs) >= 20:
             # if we have enough aids (over equals 20) we don't need to look for candidates! we just use the old logic
             weights=np.logspace(0.1,1,len(AIDs),base=2, endpoint=True)-1
@@ -88,15 +94,13 @@ def word2vec_candidate(df):
                 most_recent_aid = AIDs[0]
                 # and look for some neighbors!
                 nns = [w2vec.wv.index_to_key[i] for i in index.get_nns_by_item(aid2idx[most_recent_aid], 21)[1:]]
-                sorted_aids = (sorted_aids + nns)[:20]
+                sorted_aids = (sorted_aids + nns)
+           
+            session_arr = [session_num for i in range(20)]
+            # 
+            label_sessions.extend(session_arr)
+            label_aids.extend(sorted_aids[:20])
 
-            session_arr = np.full((20), session_num)        
-
-            session_df = cudf.DataFrame({
-                "session": session_arr,
-                "aid": sorted_aids[:20] 
-            })
-            candidates = cudf.concat([candidates, session_df])
         else:
             # here we don't have 20 aids to output -- we will use word2vec embeddings to generate candidates!
             AIDs = list(dict.fromkeys(AIDs[::-1]))
@@ -104,14 +108,16 @@ def word2vec_candidate(df):
             most_recent_aid = AIDs[0]
             # and look for some neighbors!
             nns = [w2vec.wv.index_to_key[i] for i in index.get_nns_by_item(aid2idx[most_recent_aid], 21)[1:]]
-            session_arr = np.full((20), session_num)
-            session_df = cudf.DataFrame({
-                "session": session_arr,
-                "aid": (AIDs+nns)[:20] 
-            })
             
-            candidates = cudf.concat([candidates, session_df])
+            session_arr = [session_num for i in range(20)]
+            label_sessions.extend(session_arr)
+            label_aids.extend((AIDs+nns)[:20])  
 
+    candidates = cudf.DataFrame({"session": label_sessions, "aid":label_aids})
+    
+    print('candidates')
+    print(candidates)
+    
     print("candidate calc end")
     end = time.time()
     print(f'執行時間: {end - start} 秒\n')
@@ -223,3 +229,4 @@ for session, preds in zip(test_predictions['session'].to_numpy(), test_predictio
 
 submission = pl.DataFrame({'session_type': session_types, 'labels': labels})
 submission.write_csv('submission.csv')
+
